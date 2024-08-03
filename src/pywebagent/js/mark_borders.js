@@ -192,8 +192,13 @@
         cursor_from_point =  window.getComputedStyle(topElement).cursor;
     }
 
-    return (['pointer', 'hand', 'text'].includes(cursor) 
-        && ['pointer', 'auto', 'hand', 'text'].includes(cursor_from_point));
+    // return (['pointer', 'hand', 'text'].includes(cursor) 
+    //     && ['pointer', 'auto', 'hand', 'text'].includes(cursor_from_point));
+    const hasOnClickHandler = !!element.onclick;
+    const isFocusable = element.tabIndex >= 0;
+    return (['pointer', 'hand', 'text'].includes(cursor)
+        && ['pointer', 'auto', 'hand', 'text'].includes(cursor_from_point)) ||
+        hasOnClickHandler || isFocusable;
   }
 
 
