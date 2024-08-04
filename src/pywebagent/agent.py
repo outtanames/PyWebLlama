@@ -1,4 +1,5 @@
 import base64
+import random
 from enum import Enum
 import json
 import time
@@ -76,8 +77,25 @@ def generate_user_message(task, observation, num_history):
     return HumanMessage(content=[text_content, image_content])
 
 
-def generate_system_message():
-    system_prompt = """
+def generate_system_message(observation):
+
+    is_number = lambda s: s.replace(".", "", 1).isdigit() if s else False
+    ids_of_elements_with_text = [
+        _k
+        for _k, _v in observation.marked_elements.items()
+        if _v["text"] and not is_number(_v["text"])
+    ]
+    ids_to_specify = random.sample(
+        ids_of_elements_with_text, min(10, len(ids_of_elements_with_text))
+    )
+    id_string = ", ".join(
+        [
+            f"id {_id} is {observation.marked_elements[_id]['text']}"
+            for _id in ids_to_specify
+        ]
+    )
+
+    system_prompt = f"""
     You are an AI agent that controls a webpage using python code, in order to achieve a task.
     You are provided a screenshot of the webpage at each timeframe, and you decide on the next python line to execute.
     You can use the following functions:
@@ -89,7 +107,10 @@ def generate_system_message():
     - actions.finish(did_succeed, output: dict, reason) # the task is complete with did_succeed=True or False, and a text reason. output is optional dictionary of output values if the task succeeded.
     - actions.act(url: str, task: str, log_message, **kwargs) # run another agent on a different webpage. The sub-agent will run until it finishes and will output a result which you can use later. Useful for getting auth details from email for example.
                                                               # task argument should be described in natural language. kwargs are additional arguments the sub-agent needs to complete the task. YOU MUST PROVIDE ALL NEEDED ARGUMENTS, OTHERWISE THE SUB-AGENT WILL FAIL.
-    element_id is always an integer, and is visible as a green label with white number around the TOP-LEFT CORNER OF EACH ELEMENT. Make sure to examine all green highlighted elements before choosing one to interact with.
+    element_id is always an integer, and is visible as a green label with white number around the TOP-LEFT CORNER OF EACH ELEMENT.
+    For example, {id_string}.
+    Make sure to examine all green highlighted elements before choosing one to interact with.
+    
     log_message is a short one sentence explanation of what the action does.
     Do not use keyword arguments, all arguments are positional.
 
@@ -109,6 +130,7 @@ def generate_system_message():
     actions.func_name(args..)
     ```
     """
+    print(system_prompt)
     return SystemMessage(content=system_prompt)
 
 
@@ -130,7 +152,7 @@ def extract_code(text):
 def calculate_next_action(task, observation, num_history):
     llm = get_llm()
 
-    system_message = generate_system_message()
+    system_message = generate_system_message(observation)
     user_message = generate_user_message(task, observation, num_history)
 
     try:
@@ -142,6 +164,9 @@ def calculate_next_action(task, observation, num_history):
         ai_message = llm([system_message, user_message])
 
     logger.info(f"AI message: {ai_message.content}")
+    import pdb
+
+    pdb.set_trace()
 
     code_to_execute = extract_code(ai_message.content)
 

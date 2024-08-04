@@ -272,7 +272,8 @@
         xpath: getXPathForElement(element),
         html: element.outerHTML, // Adding the HTML of the element
         element: element, // Store the actual element
-        old_aria_label: originalLabel
+        old_aria_label: originalLabel,
+        text: 'textContent' in element ? element.textContent : null
     });
     counter++;
   }
