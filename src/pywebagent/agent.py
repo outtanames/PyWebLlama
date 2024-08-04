@@ -27,8 +27,18 @@ def get_llm():
         max_tokens=2000,
     )
 
+def get_indexed_html_for_observation(observation):
+
+    indexed_html = {}
+
+    for idx, element in enumerate(observation.marked_elements):
+        indexed_html[element["id"]] = element["html"]
+
+    return indexed_html
 
 def generate_user_message(task, observation, num_history):
+
+    import pdb; pdb.set_trace()
     # use last num_history actions
     if observation.env_state.log_history and num_history > 0:
         log_history = "\n".join(observation.env_state.log_history[-num_history:])
