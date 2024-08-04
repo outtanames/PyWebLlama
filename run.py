@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--task", required=True, type=str, help="Task to perform")
     parser.add_argument("--kwargs", required=False, type=str, help="Task arguments", default={})
     args = parser.parse_args()
-    args.kwargs = eval(args.kwargs)
+    # args.kwargs = eval(args.kwargs)
     status, output = main(args)
     print("Status:", status)
     print("Output:", output)
