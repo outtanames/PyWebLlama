@@ -56,4 +56,3 @@ def llama_70b(prompt: str, provider="baseten"):
   else:
      raise ValueError("Invalid provider")
   
-print(llama_405b("What is the capital of France?", "groq"))
