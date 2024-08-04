@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Tuple, Dict
 from playwright.sync_api import sync_playwright
-from pywebagent.env.actions import Actions, EnvState
+from src.pywebagent.env.actions import Actions, EnvState
 
 logger = logging.getLogger(__name__)
 
