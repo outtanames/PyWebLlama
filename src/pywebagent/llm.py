@@ -1,5 +1,8 @@
 import requests
 import json
+from groq import Groq
+import os
+
 
 def llama_405b(prompt: str, provider="baseten"):
   if provider == "baseten":
@@ -16,7 +19,7 @@ def llama_405b(prompt: str, provider="baseten"):
     ) as response:
         return str(response.content)
   elif provider == "groq":
-     raise NotImplementedError("Groq is not yet supported")
+    raise ValueError("Not implemented")
   else:
      raise ValueError("Invalid provider")
   
@@ -35,6 +38,22 @@ def llama_70b(prompt: str, provider="baseten"):
     ) as resp:
         resp.content
   elif provider == "groq":
-     raise NotImplementedError("Groq is not yet supported")
+    client = Groq(
+        api_key=os.environ.get("GROQ_API_KEY"),
+    )
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        model="llama-3.1-70b-versatile",
+    )
+
+    return chat_completion.choices[0].message.content
   else:
      raise ValueError("Invalid provider")
+  
+print(llama_405b("What is the capital of France?", "groq"))
