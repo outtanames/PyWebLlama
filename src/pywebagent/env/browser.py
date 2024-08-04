@@ -40,7 +40,7 @@ class BrowserEnv:
             self.override_file_chooser_js_script = file.read()
         
     def step(self, code: str, marked_elements: list = []) -> WebpageObservation:
-        self.env_state.log_history = []  # Clear log history to have logs only for the current step
+        #self.env_state.log_history = []  # Clear log history to have logs only for the current step
         actions = Actions(self.page, marked_elements, self.env_state)
         context = {"actions": actions}
         try:

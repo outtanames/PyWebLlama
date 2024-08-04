@@ -19,14 +19,19 @@ class Task:
 
 def get_llm():
     return ChatOpenAI(
-        model_name="gpt-4-vision-preview",
+        model_name="gpt-4o",
         temperature=1, 
         request_timeout=120, 
         max_tokens=2000,
     )
 
-def generate_user_message(task, observation):
-    log_history = '\n'.join(observation.env_state.log_history if observation.env_state.log_history else [])
+def generate_user_message(task, observation, num_history):
+    # use last num_history actions
+    if observation.env_state.log_history and num_history > 0:
+        log_history = '\n'.join(observation.env_state.log_history[-num_history:])
+    else:
+        log_history = ''
+
     marked_elements_tags = ', '.join([f"({str(i)}) - <{elem['tag'].lower()}>" for i, elem in observation.marked_elements.items()])
     text_prompt = f"""
         Execution error: 
@@ -113,11 +118,11 @@ def extract_code(text):
 
     return extracted_text
 
-def calcualte_next_action(task, observation):
+def calculate_next_action(task, observation, num_history):
     llm = get_llm()
 
     system_message = generate_system_message()
-    user_message = generate_user_message(task, observation)
+    user_message = generate_user_message(task, observation, num_history)
 
     try:
         ai_message = llm([system_message, user_message])
@@ -141,14 +146,14 @@ def get_task_status(observation):
     else:
         return TASK_STATUS.IN_PROGRESS
 
-def act(url, task, max_actions=40, **kwargs):
+def act(url, task, num_history, max_actions=40, **kwargs):
     task = Task(task=task, args=kwargs)
 
     browser = BrowserEnv(headless=False)
     observation = browser.reset(url) 
 
     for i in range(max_actions):
-        action = calcualte_next_action(task, observation) 
+        action = calculate_next_action(task, observation, num_history) 
         observation = browser.step(action, observation.marked_elements)
         task_status = get_task_status(observation)
         if task_status in [TASK_STATUS.SUCCESS, TASK_STATUS.FAILED]:
