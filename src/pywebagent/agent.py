@@ -96,6 +96,35 @@ def generate_user_message_llama(task, page_summary_from_vision, url):
     return HumanMessage(content=[text_content])
 
 
+def generate_user_message_vision(task, observation):
+    log_history = '\n'.join(observation.env_state.log_history if observation.env_state.log_history else [])
+    marked_elements_tags = ', '.join([f"({str(i)}) - <{elem['tag'].lower()}>" for i, elem in observation.marked_elements.items()])
+    text_prompt = f"""
+        Execution error: 
+        {observation.error_message}
+
+        URL: 
+        {observation.url}
+
+        Summary of page contents:
+        {marked_elements_tags}
+        
+        Task: 
+        {task.task}
+
+        Log of last actions:
+        {log_history}
+
+        Task Arguments:
+        {json.dumps(task.args, indent=4)}
+        
+    """
+
+    text_content = {"type": "text", "text": text_prompt}
+
+    return HumanMessage(content=[text_content])
+
+
 def generate_system_message():
     system_prompt = """
     You are an AI agent that controls a webpage using python code, in order to achieve a task.
@@ -183,36 +212,6 @@ def generate_system_message_vision():
     return SystemMessage(content=system_prompt)
 
 
-def generate_user_message_vision(task, observation):
-
-    log_history = '\n'.join(observation.env_state.log_history if observation.env_state.log_history else [])
-    marked_elements_tags = ', '.join([f"({str(i)}) - <{elem['tag'].lower()}>" for i, elem in observation.marked_elements.items()])
-    text_prompt = f"""
-        Execution error: 
-        {observation.error_message}
-
-        URL: 
-        {observation.url}
-
-        Summary of page contents:
-        {marked_elements_tags}
-        
-        Task: 
-        {task.task}
-
-        Log of last actions:
-        {log_history}
-
-        Task Arguments:
-        {json.dumps(task.args, indent=4)}
-        
-    """
-
-    text_content = {"type": "text", "text": text_prompt}
-
-    return HumanMessage(content=[text_content])
-
-
 def extract_code(text):
     """
     Extracts all text in a string following the pattern "'\nCode:\n".
@@ -251,13 +250,8 @@ def calcualte_next_action(task, observation):
 def generate_page_summary(task, observation):
     logger.info("Generating page summary...")
     vision_chat = get_llm()
-    screenshot = observation.screenshot
 
     system_message = generate_system_message_vision()
-
-    # image_content = {"type": "image", "image": screenshot}
-
-    system_message = generate_system_message()
     user_message = generate_user_message(task, observation)
 
     try:
@@ -272,7 +266,6 @@ def generate_page_summary(task, observation):
 
 
 def calculate_action_llama(task, observation):
-    import pdb; pdb.set_trace()
     system_message = generate_system_message_llama()
 
     page_summary = generate_page_summary(task, observation)
