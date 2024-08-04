@@ -8,6 +8,11 @@ from langchain.schema import HumanMessage, SystemMessage
 from langchain.chat_models import ChatOpenAI
 
 import requests
+import json
+from groq import Groq
+import os
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,40 @@ def get_llm():
     )
 
 
+def llama_70b(prompt: str, provider="baseten"):
+  if provider == "baseten":
+    s = requests.Session()
+    with s.post(
+        "https://model-jwd78r4w.api.baseten.co/production/predict",
+        headers={"Authorization": "Api-Key vB3H7OSq.HCfqgTyxgyYKAp5palSauFwCV5UzAxSp"},
+        data=json.dumps({
+          "prompt": prompt,
+          "stream": True,
+          "max_tokens": 1024
+        }),
+        stream=False,
+    ) as resp:
+        resp.content
+  elif provider == "groq":
+    client = Groq(
+        api_key=os.environ.get("GROQ_API_KEY"),
+    )
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        model="llama-3.1-70b-versatile",
+    )
+
+    return chat_completion.choices[0].message.content
+  else:
+     raise ValueError("Invalid provider")
+  
+
 def llama_405b(prompt: str, provider="baseten"):
   if provider == "baseten":
     s = requests.Session()
@@ -45,12 +84,52 @@ def llama_405b(prompt: str, provider="baseten"):
     ) as response:
         return str(response.content)
   elif provider == "groq":
-     raise NotImplementedError("Groq is not yet supported")
-  else: 
+    raise ValueError("Not implemented")
+  else:
      raise ValueError("Invalid provider")
   
 
-def generate_user_message_llama(task, page_summary_from_vision, url):
+def generate_user_message(task, observation, num_history):
+    # use last num_history actions
+    if observation.env_state.log_history and num_history > 0:
+        log_history = "\n".join(observation.env_state.log_history[-num_history:])
+    else:
+        log_history = ""
+
+    marked_elements_tags = ", ".join(
+        [
+            f"({str(i)}) - <{elem['tag'].lower()}>"
+            for i, elem in observation.marked_elements.items()
+        ]
+    )
+    text_prompt = f"""
+        Execution error: 
+        {observation.error_message}
+
+        URL: 
+        {observation.url}
+
+        Marked elements tags:
+        {marked_elements_tags}
+        
+        Task: 
+        {task.task}
+
+        Log of last actions:
+        {log_history}
+
+        Task Arguments:
+        {json.dumps(task.args, indent=4)}
+        
+    """
+  
+
+def generate_user_message_llama(task, page_summary_from_vision, url, num_history):
+    if observation.env_state.log_history and num_history > 0:
+        log_history = "\n".join(observation.env_state.log_history[-num_history:])
+    else:
+        log_history = ""
+
     text_prompt = f"""
         URL: 
         {url}
@@ -145,7 +224,7 @@ def generate_page_summary(task, observation):
     vision_chat = get_llm()
 
     system_message = generate_system_message_vision()
-    user_message = generate_user_message(task, observation)
+    user_message = generate_user_message(task, observation, num_history=0)
 
     try:
         page_summary = vision_chat([system_message, user_message])
@@ -164,7 +243,7 @@ def calculate_action_llama(task, observation):
     page_summary = generate_page_summary(task, observation)
 
     # Going to generate from both gpt and llama for now
-    user_message = generate_user_message_llama(task, page_summary, observation.url)
+    user_message = generate_user_message_llama(task, page_summary, observation.url, num_history=3)
 
     # join the system and user messages for now
     nav_prompt_content = "This is the system prompt: " + \
@@ -174,50 +253,16 @@ def calculate_action_llama(task, observation):
     navigation_prompt = SystemMessage(nav_prompt_content)
 
     try:
-        nav_response = llama_405b(navigation_prompt.content)
-    except:
+        nav_response = llama_70b(navigation_prompt.content, provider="groq")
+    except Exception as e:
         # This sometimes solves the RPM limit issue
-        logger.warning("Failed to get response from Baseten, trying again in 30 seconds")
-        time.sleep(30)
-        nav_response = llama_405b(navigation_prompt.content)
+        logger.warning("Failed to get response from llama client: " + str(e))
+        time.sleep(10)
+        nav_response = llama_70b(navigation_prompt.content, provider="groq")
 
     code_to_execute = extract_code(nav_response)
 
     return code_to_execute
-
-def generate_user_message(task, observation, num_history):
-    # use last num_history actions
-    if observation.env_state.log_history and num_history > 0:
-        log_history = "\n".join(observation.env_state.log_history[-num_history:])
-    else:
-        log_history = ""
-
-    marked_elements_tags = ", ".join(
-        [
-            f"({str(i)}) - <{elem['tag'].lower()}>"
-            for i, elem in observation.marked_elements.items()
-        ]
-    )
-    text_prompt = f"""
-        Execution error: 
-        {observation.error_message}
-
-        URL: 
-        {observation.url}
-
-        Marked elements tags:
-        {marked_elements_tags}
-        
-        Task: 
-        {task.task}
-
-        Log of last actions:
-        {log_history}
-
-        Task Arguments:
-        {json.dumps(task.args, indent=4)}
-        
-    """
 
     screenshot_binary = observation.screenshot
     base64_image = base64.b64encode(screenshot_binary).decode("utf-8")
