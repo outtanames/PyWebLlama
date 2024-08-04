@@ -1,0 +1,6 @@
+venv
+*.png
+.env
+.DS_Store
+node_modules
+*.pyc

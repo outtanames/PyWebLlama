@@ -3,7 +3,7 @@ from enum import Enum
 import json
 import time
 import logging
-from pywebagent.env.browser import BrowserEnv
+from src.pywebagent.env.browser import BrowserEnv
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.chat_models import ChatOpenAI
 
